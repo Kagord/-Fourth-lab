@@ -17,6 +17,7 @@ import javax.swing.JPanel;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.text.NumberFormat;
+import java.util.LinkedList;
 
 @SuppressWarnings("serial")
 public class GraphicsDisplay  extends JPanel{
@@ -82,6 +83,7 @@ public class GraphicsDisplay  extends JPanel{
     }
 
     // Метод отображения всего компонента, содержащего график
+    @Override
     public void paintComponent(Graphics g) {
         /* Шаг 1 - Вызвать метод предка для заливки области цветом заднего фона
          * Эта функциональность - единственное, что осталось в наследство от
@@ -111,13 +113,14 @@ public class GraphicsDisplay  extends JPanel{
 и Y - сколько пикселов
 * приходится на единицу длины по X и по Y
 */
-        double scaleX = getSize().getWidth() / (maxX - minX);
-        double scaleY = getSize().getHeight() / (maxY - minY);
+        if (!turnGraph) {
+            double scaleX = getSize().getWidth() / (maxX - minX);
+            double scaleY = getSize().getHeight() / (maxY - minY);
 // Шаг 5 - Чтобы изображение было неискажѐнным - масштаб должен быть одинаков
 // Выбираем за основу минимальный
-        scale = Math.min(scaleX, scaleY);
+            scale = Math.min(scaleX, scaleY);
 // Шаг 6 - корректировка границ отображаемой области согласно выбранному масштабу
-        if (scale==scaleX) {
+            if (scale == scaleX) {
 /* Если за основу был взят масштаб по оси X, значит по оси Y
 делений меньше,
 * т.е. подлежащий визуализации диапазон по Y будет меньше
@@ -129,17 +132,18 @@ public class GraphicsDisplay  extends JPanel{
 * 3) Набросим по половине недостающего расстояния на maxY и
 minY
 */
-            double yIncrement = (getSize().getHeight()/scale - (maxY -
-                    minY))/2;
-            maxY += yIncrement;
-            minY -= yIncrement;
-        }
-        if (scale==scaleY) {
+                double yIncrement = (getSize().getHeight() / scale - (maxY -
+                        minY)) / 2;
+                maxY += yIncrement;
+                minY -= yIncrement;
+            }
+            if (scale == scaleY) {
 // Если за основу был взят масштаб по оси Y, действовать по аналогии
-            double xIncrement = (getSize().getWidth()/scale - (maxX -
-                    minX))/2;
-            maxX += xIncrement;
-            minX -= xIncrement;
+                double xIncrement = (getSize().getWidth() / scale - (maxX -
+                        minX)) / 2;
+                maxX += xIncrement;
+                minX -= xIncrement;
+            }
         }
 // Шаг 7 - Сохранить текущие настройки холста
         Graphics2D canvas = (Graphics2D) g;
@@ -154,6 +158,7 @@ minY
 // Затем отображается сам график
         paintGraphics(canvas);
 // Затем (если нужно) отображаются маркеры точек, по которым строился график.
+        if (showIntegrals) paintIntegrals(canvas);
         if (showMarkers) paintMarkers(canvas);
 // Шаг 9 - Восстановить старые настройки холста
         canvas.setFont(oldFont);
@@ -190,6 +195,174 @@ minY
         canvas.draw(graphics);
     }
     // Отображение маркеров точек, по которым рисовался график
+
+    protected void paintIntegrals(Graphics2D canvas) {
+        LinkedList<Integer> indexses = new LinkedList<>();
+        Double domens = 0.0;
+        GeneralPath path = new GeneralPath();
+        for (int i = 0; i < graphicsData.length - 1; i++) {
+            System.out.println("X: " + graphicsData[i][0] + " Y: " + graphicsData[i][1] + " i: " + i);
+            if ((graphicsData[i][1] < 0 == graphicsData[i + 1][1] >= 0) || (graphicsData[i][1] == 0)) {
+                if (domens != 0) {
+                    domens += 1;
+                    if (graphicsData[i][1] == 0)
+                        indexses.add(i - 1);
+                    else
+                        indexses.add(i);
+                    indexses.add(i);
+                    System.out.println("End+Start");
+                    if(graphicsData[i+1][1]==0) {
+                        i++;
+                    }
+                    System.out.println("X: " + graphicsData[i][0] + " Y: " + graphicsData[i][1] + " i: " + i);
+                    continue;
+                } else {
+                    indexses.add(i);
+                    System.out.println("Start");
+                    domens += 0.5;
+                }
+
+            }
+            if (domens.intValue() == domens) {
+                //  System.out.println("end");
+            } else {
+                //System.out.println("start");
+            }
+        }
+        LinkedList<Double> xcoordinates = new LinkedList<>();
+        for (int i = 0; i < 2 * domens.intValue(); i++) {
+            //формулка для рассчета точки пересейчения прямой с осью координат по известным двум точкам
+            xcoordinates.add(-graphicsData[indexses.get(i)][1] / (graphicsData[indexses.get(i) + 1][1] - graphicsData[indexses.get(i)][1]) * (graphicsData[indexses.get(i) + 1][0] - graphicsData[indexses.get(i)][0]) + graphicsData[indexses.get(i)][0]);
+            System.out.println("Координата x пересечения c Ox с индексом " + i + " " + xcoordinates.get(i) + " на интервале от " + indexses.get(i) + " до " + (indexses.get(i) + 1));
+        }
+
+        int k = 0;
+        Double[] integral = new Double[xcoordinates.size() / 2];
+        for (int i = 0; i < xcoordinates.size() / 2; i++) {
+            integral[i] = 0.0;
+        }
+        Double maxy = 0.0;
+        Double miny = 0.0;
+        Double[] averagey = new Double[xcoordinates.size() / 2];
+        for (int i = 0; i < graphicsData.length; i++) {
+            // System.out.println("INDEX: "+ i+ " left " +xcoordinates.get(k)+"<="+graphicsData[i][0]+"<"+xcoordinates.get(k+1)+ " ? ");
+            if (graphicsData[i][0] >= xcoordinates.get(k) && graphicsData[i][0] < xcoordinates.get(k + 1)) {
+// Преобразовать значения (x,y) в точку на экране point
+                if (maxy < graphicsData[i][1]) {
+                    maxy = graphicsData[i][1];
+                }
+                if (miny > graphicsData[i][1]) {
+                    miny = graphicsData[i][1];
+                }
+                if (graphicsData[i - 1][0] <= xcoordinates.get(k)) {
+// Первая итерация цикла - установить начало пути в точку point
+                    integral[k / 2] += Math.abs((graphicsData[i][0] - xcoordinates.get(k)) * graphicsData[i][1] / 2);
+                    canvas.setColor(Color.red);
+                    Point2D.Double point = xyToPoint(xcoordinates.get(k), 0);
+                    path.moveTo(point.getX(), point.getY());
+                    System.out.println("The line moved to its initial position, x = " + point.getX() + " on the itaration i = " + i);
+                    point = xyToPoint(graphicsData[i][0], graphicsData[i][1]);
+                    path.lineTo(point.getX(), point.getY());
+                }
+                if (graphicsData[i + 1][0] >= xcoordinates.get(k + 1)) {
+// Не первая итерация цикла - вести линию в точку point
+                    Point2D.Double point = xyToPoint(graphicsData[i][0], graphicsData[i][1]);
+                    path.lineTo(point.getX(), point.getY());
+                    point = xyToPoint(xcoordinates.get(k + 1), 0);
+                    path.lineTo(point.getX(), point.getY());
+                    integral[k / 2] += Math.abs(graphicsData[i][1] / 2 * (xcoordinates.get(k + 1) - graphicsData[i][0]));
+                    path.closePath();
+                    System.out.println("The line was closed , x = " + point.getX() + " on the itaration i = " + i);
+                    canvas.fill(path);
+                    canvas.draw(path);
+                    if (maxy == 0.0)
+                        averagey[k / 2] = miny;
+                    else
+                        averagey[k / 2] = maxy;
+                    if (k >= xcoordinates.size() - 2) break;
+                    k += 2;
+                    maxy = 0.0;
+                    miny = 0.0;
+                }
+                if(!(graphicsData[i + 1][0] >= xcoordinates.get(k + 1))&&!(graphicsData[i - 1][0] <= xcoordinates.get(k))) {
+                    integral[k / 2] += Math.abs((graphicsData[i][0] - graphicsData[i - 1][0]) * (graphicsData[i][1] + graphicsData[i - 1][1]) / 2);
+                    Point2D.Double point = xyToPoint(graphicsData[i][0], graphicsData[i][1]);
+                    path.lineTo(point.getX(), point.getY());
+                }
+
+            }
+        }
+        System.out.println("Integral" + (int) (k / 2) + " = " + integral[k / 2]);
+
+        canvas.setFont(smallfont);
+        FontRenderContext context = canvas.getFontRenderContext();
+        for (
+                int i = 0; i < xcoordinates.size() / 2; i++) {
+            canvas.setColor(Color.black);
+            Rectangle2D bounds = smallfont.getStringBounds(String.format("%.3f", integral[i]), context);
+            System.out.println(bounds.getX());
+            canvas.drawString(String.format("%.3f", integral[i]), (float) (xyToPoint(xcoordinates.get(2 * i) + (xcoordinates.get(2 * i + 1) - xcoordinates.get(2 * i)) / 2 - bounds.getX(), averagey[i] / 2).getX()), (float) xyToPoint(xcoordinates.get(2 * i) + (xcoordinates.get(2 * i + 1) - xcoordinates.get(2 * i)) / 2, averagey[i] / 2).getY());
+        }
+    }
+
+    protected void rotatePanel(Graphics2D canvas){
+        canvas.translate(0, getHeight());
+        canvas.rotate(-Math.PI/2);
+    }
+    protected void paintMarkers(Graphics2D canvas) {
+// Шаг 1 - Установить специальное перо для черчения контуров маркеров
+        canvas.setStroke(markerStroke);
+// Выбрать красный цвета для контуров маркеров
+        canvas.setColor(Color.BLUE);
+// Выбрать красный цвет для закрашивания маркеров внутри
+        canvas.setPaint(Color.BLUE);
+// Шаг 2 - Организовать цикл по всем точкам графика
+        for (Double[] point : graphicsData) {
+// Инициализировать эллипс как объект для представления маркера
+            int size = 5;
+            Ellipse2D.Double marker = new Ellipse2D.Double();
+            Point2D.Double center = xyToPoint(point[0], point[1]);
+            //line.setLine();
+// Угол прямоугольника - отстоит на расстоянии (3,3)
+            Point2D.Double corner = shiftPoint(center, size, size);
+// Задать эллипс по центру и диагонали
+            marker.setFrameFromCenter(center, corner);
+
+
+            Line2D.Double line = new Line2D.Double(shiftPoint(center, -size, 0), shiftPoint(center, size, 0));
+            Boolean highervalue = true;
+            DecimalFormat formatter = (DecimalFormat) NumberFormat.getInstance();
+            formatter.setMaximumFractionDigits(2);
+            DecimalFormatSymbols dottedDouble =
+                    formatter.getDecimalFormatSymbols();
+            dottedDouble.setDecimalSeparator('.');
+            formatter.setDecimalFormatSymbols(dottedDouble);
+            String temp = formatter.format(Math.abs(point[1]));
+            temp = temp.replace(".", "");
+            //System.out.println(temp);
+            for (int i = 0; i < temp.length() - 1; i++) {
+
+                if (temp.charAt(i) != 46 && (int) temp.charAt(i) > (int) temp.charAt(i + 1)) {
+                    highervalue = false;
+                    break;
+                }
+            }
+            if (highervalue) {
+                canvas.setColor(Color.BLACK);
+            }
+            canvas.draw(line);
+            line.setLine(shiftPoint(center, 0, -size), shiftPoint(center, 0, size));
+            canvas.draw(line);
+            canvas.draw(marker); // Начертить контур маркера
+            canvas.setColor(Color.BLUE);
+/* Эллипс будет задаваться посредством указания координат
+его центра
+и угла прямоугольника, в который он вписан */
+// Центр - в точке (x,y)
+
+        }
+    }
+
     protected void paintMarkers(Graphics2D canvas) {
 // Шаг 1 - Установить специальное перо для черчения контуров маркеров
         canvas.setStroke(markerStroke);
