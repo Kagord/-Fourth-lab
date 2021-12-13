@@ -31,21 +31,24 @@ public class GraphicsDisplay  extends JPanel{
     private double maxX;
     private double minY;
     private double maxY;
+    private boolean showIntegrals = false;
     // Используемый масштаб отображения
     private double scale;
     // Различные стили черчения линий
     private BasicStroke graphicsStroke;
     private BasicStroke axisStroke;
     private BasicStroke markerStroke;
+    private boolean turnGraph = false;
     // Шрифт отображения подписей к осям координат
     private Font axisFont;
+    private Font smallfont;
 
     public GraphicsDisplay() {
         setBackground(Color.WHITE);
 // Сконструировать необходимые объекты, используемые в рисовании
 // Перо для рисования графика
         graphicsStroke = new BasicStroke(2.0f, BasicStroke.CAP_BUTT,
-                BasicStroke.JOIN_ROUND, 10.0f, null, 0.0f);
+                BasicStroke.JOIN_ROUND, 10.0f, new float[] {10, 10, 10, 10, 10, 10, 30 , 30, 30,30,30,30}, 0.0f);
 // Перо для рисования осей координат
         axisStroke = new BasicStroke(2.0f, BasicStroke.CAP_BUTT,
                 BasicStroke.JOIN_MITER, 10.0f, null, 0.0f);
@@ -60,6 +63,21 @@ public class GraphicsDisplay  extends JPanel{
 // Сохранить массив точек во внутреннем поле класса
         this.graphicsData = graphicsData;
 // Запросить перерисовку компонента, т.е. неявно вызвать
+        repaint();
+    }
+    // Методы-модификаторы для изменения параметров отображения графика
+// Изменение любого параметра приводит к перерисовке области
+    public void setShowAxis(boolean showAxis) {
+        this.showAxis = showAxis;
+        repaint();
+
+    }
+    public void setShowMarkers(boolean showMarkers) {
+        this.showMarkers = showMarkers;
+        repaint();
+    }
+    public void setShowIntegrals(boolean showIntegrals) {
+        this.showIntegrals = showIntegrals;
         repaint();
     }
 
